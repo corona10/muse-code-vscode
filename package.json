@@ -1,0 +1,556 @@
+{
+  "name": "muse-code-unofficial",
+  "displayName": "Muse Code (Unofficial)",
+  "description": "Unofficial, community-built VS Code chat UI for Muse Code, Meta's agentic coding CLI. Not affiliated with Meta or Anthropic. Inspired by the Claude Code VS Code extension.",
+  "version": "0.1.0",
+  "publisher": "CHANGE-ME",
+  "license": "MIT",
+  "icon": "resources/muse-logo.png",
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "muse",
+    "muse code",
+    "unofficial",
+    "ai",
+    "agent",
+    "meta"
+  ],
+  "engines": {
+    "vscode": "^1.98.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onWebviewPanel:museVSCodePanel"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In untrusted workspaces Muse runs without loading workspace skills and rules."
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "npm run typecheck && node esbuild.mjs --production && vsce package --no-dependencies",
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "smoke": "node scripts/smoke/run.mjs"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "Muse Code (Unofficial)",
+      "properties": {
+        "museCode.executablePath": {
+          "type": "string",
+          "default": "muse",
+          "scope": "machine",
+          "description": "Path to the muse executable used to launch the session host (muse serve)."
+        },
+        "museCode.environmentVariables": {
+          "type": "array",
+          "scope": "machine",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Environment variable name"
+              },
+              "value": {
+                "type": "string",
+                "description": "Environment variable value"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ]
+          },
+          "default": [],
+          "description": "Environment variables to set when launching Muse."
+        },
+        "museCode.useTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Launch Muse in the terminal (the muse TUI) instead of the native UI."
+        },
+        "museCode.allowDangerouslyAllowAll": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "Allow the 'Allow all' approval mode, which never asks before running tools. Recommended only for sandboxes with no internet access."
+        },
+        "museCode.initialApprovalMode": {
+          "type": "string",
+          "scope": "machine",
+          "enum": [
+            "onRequest",
+            "promptUnmatched",
+            "denyUnmatched",
+            "allowAll"
+          ],
+          "enumDescriptions": [
+            "Ask before running tools when the tool requests it (Muse default posture)",
+            "Ask only for actions that no policy rule already allows",
+            "Deny anything that no policy rule already allows, without asking",
+            "Never ask (requires museCode.allowDangerouslyAllowAll)"
+          ],
+          "description": "Initial approval mode for new conversations. Unset defers to the Muse CLI's configured default."
+        },
+        "museCode.model": {
+          "type": "string",
+          "description": "Model id for new conversations. Unset defers to the Muse catalog default. Pick from the model selector to see available ids."
+        },
+        "museCode.reasoningEffort": {
+          "type": "string",
+          "enum": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "ultra"
+          ],
+          "description": "Reasoning effort sent with each turn. Unset defers to the Muse default."
+        },
+        "museCode.respectGitIgnore": {
+          "type": "boolean",
+          "default": true,
+          "description": "Respect .gitignore files when searching files for @-mentions."
+        },
+        "museCode.disableLoginPrompt": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, never prompt to run 'muse login' from the extension."
+        },
+        "museCode.autosave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save files before Muse reads or writes them."
+        },
+        "museCode.focusView": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Focus view: hide tool calls and other in-progress activity in the chat, showing only your prompts and Muse's responses. Toggle with the Muse Code: Toggle Focus view command or ctrl+alt+f."
+        },
+        "museCode.useCtrlEnterToSend": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, use Ctrl/Cmd+Enter to send prompts instead of just Enter. This allows Enter to create new lines."
+        },
+        "museCode.preferredLocation": {
+          "type": "string",
+          "enum": [
+            "sidebar",
+            "panel"
+          ],
+          "enumDescriptions": [
+            "Sidebar (Right)",
+            "Panel (New Tab)"
+          ],
+          "default": "panel",
+          "description": "Where Muse opens by default. This setting updates automatically when you open Muse in a new location."
+        },
+        "museCode.enableNewConversationShortcut": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use the Cmd/Ctrl+N keyboard shortcut to start a new conversation when Muse is focused."
+        },
+        "museCode.enableReopenClosedSessionShortcut": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use Cmd/Ctrl+Shift+T to reopen the most recently closed Muse session tab."
+        },
+        "museCode.hideOnboarding": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide the onboarding checklist in Muse Code."
+        },
+        "museCode.includeEditorContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Attach the active file and text selection to prompts so Muse knows what you are looking at."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "muse-vscode.editor.open",
+        "title": "Muse Code: Open in New Tab",
+        "icon": {
+          "light": "resources/muse-logo.svg",
+          "dark": "resources/muse-logo.svg"
+        }
+      },
+      {
+        "command": "muse-vscode.editor.openLast",
+        "title": "Muse Code: Open",
+        "icon": {
+          "light": "resources/muse-logo.svg",
+          "dark": "resources/muse-logo.svg"
+        }
+      },
+      {
+        "command": "muse-vscode.window.open",
+        "title": "Muse Code: Open in New Window"
+      },
+      {
+        "command": "muse-vscode.createWorktree",
+        "title": "Muse Code: Create Worktree"
+      },
+      {
+        "command": "muse-vscode.sidebar.open",
+        "title": "Muse Code: Open in Side Bar",
+        "icon": {
+          "light": "resources/muse-logo.svg",
+          "dark": "resources/muse-logo.svg"
+        }
+      },
+      {
+        "command": "muse-vscode.newConversation",
+        "title": "Muse Code: New Conversation"
+      },
+      {
+        "command": "muse-vscode.resumeConversation",
+        "title": "Muse Code: Resume Past Conversation"
+      },
+      {
+        "command": "muse-vscode.reopenClosedSession",
+        "title": "Muse Code: Reopen Closed Session"
+      },
+      {
+        "command": "muse-vscode.focus",
+        "title": "Muse Code: Focus input"
+      },
+      {
+        "command": "muse-vscode.blur",
+        "title": "Muse Code: Blur input"
+      },
+      {
+        "command": "muse-vscode.login",
+        "title": "Muse Code: Login"
+      },
+      {
+        "command": "muse-vscode.logout",
+        "title": "Muse Code: Logout"
+      },
+      {
+        "command": "muse-vscode.terminal.open",
+        "title": "Muse Code: Open in Terminal",
+        "icon": {
+          "light": "resources/muse-logo.svg",
+          "dark": "resources/muse-logo.svg"
+        }
+      },
+      {
+        "command": "muse-vscode.terminal.open.keyboard",
+        "title": "Muse Code: Open in Terminal (keyboard)"
+      },
+      {
+        "command": "muse-vscode.acceptProposedDiff",
+        "title": "Muse Code: Accept Proposed Changes",
+        "enablement": "muse-vscode.viewingProposedDiff",
+        "icon": "$(check)"
+      },
+      {
+        "command": "muse-vscode.rejectProposedDiff",
+        "title": "Muse Code: Reject Proposed Changes",
+        "enablement": "muse-vscode.viewingProposedDiff",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "muse-vscode.insertAtMention",
+        "title": "Muse Code: Insert @-Mention Reference"
+      },
+      {
+        "command": "muse-vscode.insertAtMentioned",
+        "title": "Muse Code: Insert At-Mentioned (Terminal)"
+      },
+      {
+        "command": "muse-vscode.showLogs",
+        "title": "Muse Code: Show Logs"
+      },
+      {
+        "command": "muse-vscode.toggleFocusView",
+        "title": "Muse Code: Toggle Focus view"
+      },
+      {
+        "command": "muse-vscode.openWalkthrough",
+        "title": "Muse Code: Open Walkthrough"
+      },
+      {
+        "command": "muse-vscode.markSessionUnread",
+        "title": "Muse Code: Mark Session as Unread"
+      },
+      {
+        "command": "muse-vscode.renameSessionTab",
+        "title": "Muse Code: Rename Session Tab"
+      },
+      {
+        "command": "muse-vscode.restartHost",
+        "title": "Muse Code: Restart Session Host"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "muse-vscode.insertAtMention",
+        "key": "alt+k",
+        "mac": "alt+k",
+        "when": "editorTextFocus && !config.museCode.useTerminal"
+      },
+      {
+        "command": "muse-vscode.focus",
+        "key": "cmd+escape",
+        "mac": "cmd+escape",
+        "win": "ctrl+escape",
+        "linux": "ctrl+escape",
+        "when": "!config.museCode.useTerminal && editorTextFocus"
+      },
+      {
+        "command": "muse-vscode.blur",
+        "key": "cmd+escape",
+        "mac": "cmd+escape",
+        "win": "ctrl+escape",
+        "linux": "ctrl+escape",
+        "when": "!config.museCode.useTerminal && !editorTextFocus"
+      },
+      {
+        "command": "muse-vscode.editor.open",
+        "key": "cmd+shift+escape",
+        "mac": "cmd+shift+escape",
+        "win": "ctrl+shift+escape",
+        "linux": "ctrl+shift+escape",
+        "when": "!config.museCode.useTerminal"
+      },
+      {
+        "command": "muse-vscode.terminal.open.keyboard",
+        "key": "cmd+escape",
+        "mac": "cmd+escape",
+        "win": "ctrl+escape",
+        "linux": "ctrl+escape",
+        "when": "config.museCode.useTerminal"
+      },
+      {
+        "command": "muse-vscode.insertAtMentioned",
+        "key": "cmd+alt+k",
+        "mac": "cmd+alt+k",
+        "win": "ctrl+alt+k",
+        "linux": "ctrl+alt+k",
+        "when": "editorTextFocus && config.museCode.useTerminal"
+      },
+      {
+        "command": "muse-vscode.newConversation",
+        "key": "cmd+n",
+        "mac": "cmd+n",
+        "win": "ctrl+n",
+        "linux": "ctrl+n",
+        "when": "config.museCode.enableNewConversationShortcut && (activeWebviewPanelId == 'museVSCodePanel' || (muse-vscode.sideBarActive && !editorFocus && !panelFocus))"
+      },
+      {
+        "command": "muse-vscode.toggleFocusView",
+        "key": "ctrl+alt+f",
+        "when": "activeWebviewPanelId == 'museVSCodePanel' || muse-vscode.sideBarActive"
+      },
+      {
+        "command": "muse-vscode.reopenClosedSession",
+        "key": "cmd+shift+t",
+        "mac": "cmd+shift+t",
+        "win": "ctrl+shift+t",
+        "linux": "ctrl+shift+t",
+        "when": "config.museCode.enableReopenClosedSessionShortcut && muse-vscode.lastClosedWasSession"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "muse-sidebar",
+          "title": "Muse Code (Unofficial)",
+          "icon": "resources/muse-logo.svg",
+          "when": "muse-code:doesNotSupportSecondarySidebar"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "muse-sidebar-secondary",
+          "title": "Muse Code (Unofficial)",
+          "icon": "resources/muse-logo.svg",
+          "when": "!muse-code:doesNotSupportSecondarySidebar"
+        }
+      ]
+    },
+    "views": {
+      "muse-sidebar": [
+        {
+          "type": "webview",
+          "id": "museVSCodeSidebar",
+          "name": "Muse Code",
+          "when": "muse-code:doesNotSupportSecondarySidebar"
+        }
+      ],
+      "muse-sidebar-secondary": [
+        {
+          "type": "webview",
+          "id": "museVSCodeSidebarSecondary",
+          "name": "Muse Code",
+          "when": "!muse-code:doesNotSupportSecondarySidebar"
+        }
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "muse-code-walkthrough",
+        "title": "Get started with Muse Code (Unofficial)",
+        "description": "Learn how to use Muse Code to write, edit, and understand your code.",
+        "steps": [
+          {
+            "id": "welcome",
+            "title": "Your AI coding partner",
+            "description": "Muse Code helps you write, edit, and understand code right in VS Code.",
+            "media": {
+              "markdown": "resources/walkthrough/step1.md"
+            }
+          },
+          {
+            "id": "open-muse",
+            "title": "Open Muse Code",
+            "description": "Click the Muse icon in the top right corner, or press Ctrl+Escape (Cmd+Escape on Mac) to start a conversation.",
+            "media": {
+              "markdown": "resources/walkthrough/step2.md"
+            },
+            "completionEvents": [
+              "onCommand:muse-vscode.sidebar.open",
+              "onCommand:muse-vscode.editor.open"
+            ]
+          },
+          {
+            "id": "chat",
+            "title": "Chat with Muse",
+            "description": "Type a message and press Enter. Ask questions, request changes, or get help understanding your code. Use @ to mention files for context, or select code first to ask about it.",
+            "media": {
+              "markdown": "resources/walkthrough/step3.md"
+            }
+          },
+          {
+            "id": "sessions",
+            "title": "Past conversations",
+            "description": "Click the Past Conversations button at the top or type /resume to browse past sessions. You can start a new conversation anytime by clicking the New Chat button.",
+            "media": {
+              "markdown": "resources/walkthrough/step4.md"
+            }
+          }
+        ]
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "muse-vscode.renameSessionTab",
+          "when": "activeWebviewPanelId == 'museVSCodePanel' && (!resource || resourceScheme == 'webview-panel')",
+          "group": "1_muse@1"
+        },
+        {
+          "command": "muse-vscode.markSessionUnread",
+          "when": "activeWebviewPanelId == 'museVSCodePanel' && (!resource || resourceScheme == 'webview-panel')",
+          "group": "1_muse@2"
+        },
+        {
+          "command": "muse-vscode.acceptProposedDiff",
+          "when": "muse-vscode.viewingProposedDiff",
+          "group": "navigation"
+        },
+        {
+          "command": "muse-vscode.rejectProposedDiff",
+          "when": "muse-vscode.viewingProposedDiff",
+          "group": "navigation"
+        },
+        {
+          "command": "muse-vscode.editor.openLast",
+          "when": "!config.museCode.useTerminal",
+          "group": "navigation"
+        },
+        {
+          "command": "muse-vscode.terminal.open",
+          "when": "config.museCode.useTerminal",
+          "group": "navigation"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "muse-vscode.renameSessionTab",
+          "when": "activeWebviewPanelId == 'museVSCodePanel' && (!resource || resourceScheme == 'webview-panel')",
+          "group": "1_muse@1"
+        },
+        {
+          "command": "muse-vscode.markSessionUnread",
+          "when": "activeWebviewPanelId == 'museVSCodePanel' && (!resource || resourceScheme == 'webview-panel')",
+          "group": "1_muse@2"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "muse-vscode.markSessionUnread",
+          "when": "webviewId == 'museVSCodePanel'"
+        },
+        {
+          "command": "muse-vscode.renameSessionTab",
+          "when": "webviewId == 'museVSCodePanel'"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "muse-vscode.editor.openLast",
+          "when": "false"
+        },
+        {
+          "command": "muse-vscode.blur",
+          "when": "false"
+        },
+        {
+          "command": "muse-vscode.terminal.open.keyboard",
+          "when": "false"
+        },
+        {
+          "command": "muse-vscode.markSessionUnread",
+          "when": "activeWebviewPanelId == 'museVSCodePanel'"
+        },
+        {
+          "command": "muse-vscode.renameSessionTab",
+          "when": "activeWebviewPanelId == 'museVSCodePanel'"
+        },
+        {
+          "command": "muse-vscode.insertAtMentioned",
+          "when": "config.museCode.useTerminal"
+        },
+        {
+          "command": "muse-vscode.insertAtMention",
+          "when": "!config.museCode.useTerminal"
+        },
+        {
+          "command": "muse-vscode.createWorktree",
+          "when": "muse-vscode.createWorktreeEnabled"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.34",
+    "@types/vscode": "^1.94.0",
+    "@vscode/codicons": "^0.0.36",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/corona10/muse-code-vscode"
+  }
+}

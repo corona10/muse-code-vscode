@@ -2,7 +2,7 @@
   "name": "muse-code-unofficial",
   "displayName": "Muse Code (Unofficial)",
   "description": "Unofficial, community-built VS Code chat UI for Muse Code, Meta's agentic coding CLI. Not affiliated with Meta or Anthropic. Inspired by the Claude Code VS Code extension.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "corona10",
   "license": "MIT",
   "icon": "resources/muse-logo.png",

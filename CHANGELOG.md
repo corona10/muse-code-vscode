@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Slash command menu: Up/Down arrows move the selection; Enter/Tab runs the highlighted command.
+
 ## 0.2.0
 
 - Resolve a bare `muse` executable name via `PATH`, common install locations, and the login shell, so the extension starts when VS Code is launched from the Dock without a shell `PATH`. `~` in `museCode.executablePath` is expanded.

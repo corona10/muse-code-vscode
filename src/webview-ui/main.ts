@@ -25,6 +25,7 @@ const S = {
   histIdx: -1,
   popup: null as null | "slash" | "model" | "mode" | "effort" | "files",
   slashFilter: "",
+  slashIdx: 0,
   feedbackFor: null as null | { approvalId: string; choiceId: string },
   userInputDraft: {} as Record<string, Record<string, { labels: string[]; note: string }>>,
 };
@@ -528,12 +529,20 @@ const SLASH: { cmd: string; desc: string; run: () => void }[] = [
 ];
 function runSlash(text: string): boolean {
   const word = text.split(/\s+/)[0].toLowerCase();
-  const match = SLASH.find((s) => s.cmd === word) ?? (S.popup === "slash" ? slashMatches()[0] : undefined);
+  const match = SLASH.find((s) => s.cmd === word) ?? (S.popup === "slash" ? slashSelected() : undefined);
   if (!match) return false;
   match.run();
   return true;
 }
 const slashMatches = () => SLASH.filter((s) => s.cmd.startsWith(S.slashFilter.toLowerCase()));
+const slashSelected = () => slashMatches()[S.slashIdx];
+/** Moves the highlighted slash command by `delta`, wrapping around, and re-renders the popup. */
+function moveSlash(delta: number) {
+  const n = slashMatches().length;
+  if (!n) return;
+  S.slashIdx = (S.slashIdx + delta + n) % n;
+  openPopup("slash");
+}
 
 // ---------- popups ----------
 function openPopup(kind: NonNullable<typeof S.popup>) {
@@ -543,7 +552,9 @@ function openPopup(kind: NonNullable<typeof S.popup>) {
   if (kind === "slash") {
     const list = slashMatches();
     if (!list.length) return closePopup();
-    popup.append(...list.map((s, i) => h("div", { class: `popup-row ${i === 0 ? "active" : ""}`, onclick: () => { s.run(); clearInput(); } }, h("span", { class: "mono" }, s.cmd), h("span", { class: "muted" }, s.desc))));
+    S.slashIdx = Math.min(S.slashIdx, list.length - 1);
+    popup.append(...list.map((s, i) => h("div", { class: `popup-row ${i === S.slashIdx ? "active" : ""}`, onclick: () => { s.run(); clearInput(); } }, h("span", { class: "mono" }, s.cmd), h("span", { class: "muted" }, s.desc))));
+    popup.querySelector(".popup-row.active")?.scrollIntoView({ block: "nearest" });
   } else if (kind === "mode") {
     popup.append(h("div", { class: "popup-title" }, "Approval mode"));
     for (const m of modes()) popup.append(h("div", { class: `popup-row ${S.state?.meta.approvalMode === m ? "active" : ""}`, onclick: () => { post({ type: "setApprovalMode", mode: m }); closePopup(); } }, h("span", {}, MODE_LABELS[m]), h("span", { class: "muted" }, MODE_DESC[m])));
@@ -613,6 +624,7 @@ input.addEventListener("input", () => {
   persist();
   const v = input.value;
   if (v.startsWith("/") && !v.includes("\n") && !/\s/.test(v)) {
+    if (v !== S.slashFilter) S.slashIdx = 0;
     S.slashFilter = v;
     openPopup("slash");
   } else if (S.popup === "slash") closePopup();
@@ -646,11 +658,16 @@ input.addEventListener("keydown", (e) => {
     post({ type: "setApprovalMode", mode: ms[(ms.indexOf(cur) + 1) % ms.length] });
     return;
   }
+  if (S.popup === "slash" && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+    e.preventDefault();
+    moveSlash(e.key === "ArrowUp" ? -1 : 1);
+    return;
+  }
   if (S.popup === "slash" && (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey))) {
     e.preventDefault();
-    const first = slashMatches()[0];
-    if (first) {
-      first.run();
+    const sel = slashSelected();
+    if (sel) {
+      sel.run();
       clearInput();
     }
     return;

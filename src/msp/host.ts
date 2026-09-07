@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import { NdjsonRpcClient, JsonRpcError } from "./jsonrpc";
 import type { InitializeResult } from "./msp";
 import type { HostStatus } from "../protocol";
+import { resolveExecutable, resetExecutableCache } from "../resolveExecutable";
 
 const CLIENT_NAME = "muse_code_vscode"; // must match ^[a-z0-9_]+$ (MSP SS1.4.1)
 
@@ -59,16 +60,17 @@ export class MuseHost extends EventEmitter {
     this.setStatus("starting");
     const args = ["serve"];
     if (this.opts.trustWorkspace) args.push("--trust-workspace");
-    this.opts.log(`spawning: ${this.opts.executable} ${args.join(" ")} (cwd ${this.opts.workspaceRoot})`);
+    const executable = await resolveExecutable(this.opts.executable, this.opts.log);
+    this.opts.log(`spawning: ${executable} ${args.join(" ")} (cwd ${this.opts.workspaceRoot})`);
     let proc: ChildProcess;
     try {
-      proc = spawn(this.opts.executable, args, {
+      proc = spawn(executable, args, {
         cwd: this.opts.workspaceRoot,
         env: { ...process.env, ...this.opts.env, MUSE_CLIENT: "vscode" },
         stdio: ["pipe", "pipe", "pipe"],
       });
     } catch (e: any) {
-      this.setStatus("failed", `Could not launch ${this.opts.executable}: ${e?.message ?? e}`);
+      this.setStatus("failed", `Could not launch ${executable}: ${e?.message ?? e}`);
       throw new Error(this.statusMessage!);
     }
     this.proc = proc;
@@ -82,9 +84,10 @@ export class MuseHost extends EventEmitter {
     const spawned = new Promise<void>((resolve, reject) => {
       proc.once("spawn", () => resolve());
       proc.once("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "ENOENT") resetExecutableCache();
         reject(
           err.code === "ENOENT"
-            ? new Error(`'${this.opts.executable}' was not found. Install Muse Code and make sure it is on your PATH, or set museCode.executablePath.`)
+            ? new Error(`'${executable}' was not found. Install Muse Code and make sure it is on your PATH, or set museCode.executablePath.`)
             : err,
         );
       });

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { resetExecutableCache } from "./resolveExecutable";
 import * as os from "node:os";
 import * as path from "node:path";
 import { execFile } from "node:child_process";
@@ -164,6 +165,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("museCode.executablePath") || e.affectsConfiguration("museCode.environmentVariables")) {
+        resetExecutableCache();
         hosts.reset();
         log("configuration changed: session hosts will respawn on next use");
       }

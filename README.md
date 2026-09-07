@@ -14,7 +14,7 @@ A native VS Code chat UI for [Muse Code](https://developer.meta.com/ai/lp/muse-c
 ## Requirements
 
 - VS Code 1.98.0 or higher.
-- The `muse` CLI installed and on your `PATH` (or set `museCode.executablePath`), version 1.0.3 or later. Run `muse login` once before using the extension.
+- The `muse` CLI, version 1.0.3 or later. Run `muse login` once before using the extension. The extension looks for `muse` on `PATH`, in common install locations (`~/.local/bin`, `/opt/homebrew/bin`, ...), and via your login shell, so it works even when VS Code is launched from the Dock. Set `museCode.executablePath` only if it still cannot be found.
 
 ## Getting started
 
@@ -49,7 +49,7 @@ Inside the chat: `Enter` sends, `Shift+Enter` inserts a newline, `Esc` interrupt
 
 | Setting | Description |
 | --- | --- |
-| `museCode.executablePath` | Path to the `muse` executable. |
+| `museCode.executablePath` | Path to the `muse` executable. A bare name (default `muse`) is resolved via `PATH`, common install dirs, and your login shell; `~` is expanded. |
 | `museCode.environmentVariables` | Extra environment variables for the Muse process. |
 | `museCode.useTerminal` | Run the `muse` TUI in a terminal instead of the native UI. |
 | `museCode.initialApprovalMode` | `onRequest`, `promptUnmatched`, `denyUnmatched` or `allowAll` for new conversations. |

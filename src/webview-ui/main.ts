@@ -557,8 +557,13 @@ function openPopup(kind: NonNullable<typeof S.popup>) {
     popup.querySelector(".popup-row.active")?.scrollIntoView({ block: "nearest" });
   } else if (kind === "mode") {
     popup.append(h("div", { class: "popup-title" }, "Approval mode"));
-    for (const m of modes()) popup.append(h("div", { class: `popup-row ${S.state?.meta.approvalMode === m ? "active" : ""}`, onclick: () => { post({ type: "setApprovalMode", mode: m }); closePopup(); } }, h("span", {}, MODE_LABELS[m]), h("span", { class: "muted" }, MODE_DESC[m])));
-    if (!S.config?.allowAllEnabled) popup.append(h("div", { class: "muted small pad" }, "Enable museCode.allowDangerouslyAllowAll for a never-ask mode."));
+    // "Allow all" is always listed; when the setting is off, picking it asks the host for a one-time confirmation that enables it.
+    const enabled = !!S.config?.allowAllEnabled;
+    const all: ApprovalMode[] = enabled ? modes() : [...modes(), "allowAll"];
+    for (const m of all) {
+      const locked = m === "allowAll" && !enabled;
+      popup.append(h("div", { class: `popup-row ${S.state?.meta.approvalMode === m ? "active" : ""}`, onclick: () => { post({ type: "setApprovalMode", mode: m }); closePopup(); } }, h("span", {}, MODE_LABELS[m], locked ? h("span", { class: "tag bad" }, "confirm to enable") : null), h("span", { class: "muted" }, MODE_DESC[m])));
+    }
   } else if (kind === "effort") {
     popup.append(h("div", { class: "popup-title" }, "Reasoning effort"));
     for (const e of EFFORTS) popup.append(h("div", { class: `popup-row ${(S.state?.meta.reasoningEffort ?? null) === e ? "active" : ""}`, onclick: () => { post({ type: "setReasoningEffort", effort: e }); closePopup(); } }, e ?? "Muse default"));

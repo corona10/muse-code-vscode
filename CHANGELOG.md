@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- "Allow all" can be enabled from the approval-mode picker: choosing it shows a confirmation dialog that turns on `museCode.allowDangerouslyAllowAll` instead of requiring a manual settings edit.
+
 ## 0.3.0
 
 - Slash command menu: Up/Down arrows move the selection; Enter/Tab runs the highlighted command.

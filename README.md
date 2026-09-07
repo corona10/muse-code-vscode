@@ -53,7 +53,7 @@ Inside the chat: `Enter` sends, `Shift+Enter` inserts a newline, `Esc` interrupt
 | `museCode.environmentVariables` | Extra environment variables for the Muse process. |
 | `museCode.useTerminal` | Run the `muse` TUI in a terminal instead of the native UI. |
 | `museCode.initialApprovalMode` | `onRequest`, `promptUnmatched`, `denyUnmatched` or `allowAll` for new conversations. |
-| `museCode.allowDangerouslyAllowAll` | Permit the `allowAll` mode (never asks). Sandboxes only. |
+| `museCode.allowDangerouslyAllowAll` | Permit the `allowAll` mode (never asks). Sandboxes only. Picking "Allow all" in the mode picker offers to turn this on after a confirmation. |
 | `museCode.model` / `museCode.reasoningEffort` | Defaults for new conversations. |
 | `museCode.autosave` | Save all files before each prompt. |
 | `museCode.focusView` | Hide tool calls and reasoning; show only prompts and replies. |

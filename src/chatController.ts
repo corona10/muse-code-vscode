@@ -65,6 +65,19 @@ export class ChatController implements vscode.Disposable {
     return this.conversation.sessionId;
   }
 
+  /** Asks once before turning on museCode.allowDangerouslyAllowAll (user scope) so "Allow all" can be picked from the UI. */
+  private async confirmAllowAll(): Promise<boolean> {
+    const enable = "Enable Allow all";
+    const choice = await vscode.window.showWarningMessage(
+      "Allow all never asks before Muse runs tools, edits files, or executes shell commands.",
+      { modal: true, detail: "Recommended only in a sandbox with no internet access. This turns on the museCode.allowDangerouslyAllowAll setting for this machine; you can turn it off again in Settings." },
+      enable,
+    );
+    if (choice !== enable) return false;
+    await vscode.workspace.getConfiguration("museCode").update("allowDangerouslyAllowAll", true, vscode.ConfigurationTarget.Global);
+    return true;
+  }
+
   config(): UiConfig {
     const cfg = vscode.workspace.getConfiguration("museCode");
     return {
@@ -180,10 +193,7 @@ export class ChatController implements vscode.Disposable {
           await this.conversation.setModel(m.modelId);
           break;
         case "setApprovalMode":
-          if (m.mode === "allowAll" && !this.config().allowAllEnabled) {
-            this.conversation.toast("warning", "Enable museCode.allowDangerouslyAllowAll to use the Allow all mode.");
-            break;
-          }
+          if (m.mode === "allowAll" && !this.config().allowAllEnabled && !(await this.confirmAllowAll())) break;
           await this.conversation.setApprovalMode(m.mode);
           break;
         case "setReasoningEffort":

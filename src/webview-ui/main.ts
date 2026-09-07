@@ -617,7 +617,13 @@ input.addEventListener("input", () => {
     openPopup("slash");
   } else if (S.popup === "slash") closePopup();
 });
+// IME composition (Korean, Japanese, Chinese…): Enter/Tab/arrows arriving mid-composition must not submit or
+// move history, otherwise the IME commits its last syllable into the freshly cleared textarea.
+let composing = false;
+input.addEventListener("compositionstart", () => (composing = true));
+input.addEventListener("compositionend", () => setTimeout(() => (composing = false), 0));
 input.addEventListener("keydown", (e) => {
+  if (composing || e.isComposing || e.keyCode === 229) return;
   const mod = e.metaKey || e.ctrlKey;
   if (e.key === "@" && !e.altKey && !mod) {
     const before = input.value.slice(0, input.selectionStart);

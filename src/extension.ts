@@ -8,6 +8,7 @@ import { EditorContextService } from "./editorContext";
 import { HostManager } from "./hosts";
 import { PANEL_VIEW_TYPE, PanelManager, SIDEBAR_VIEW_IDS, SidebarProvider } from "./panels";
 import { TerminalMode } from "./terminalMode";
+import { SkillCatalog } from "./skills";
 
 const OPEN_ON_ACTIVATE_KEY = "muse-vscode.openOnActivate";
 
@@ -17,10 +18,11 @@ export async function activate(ctx: vscode.ExtensionContext) {
   const hosts = new HostManager(ctx, log);
   const editor = new EditorContextService();
   const terminal = new TerminalMode();
-  const deps: Omit<ControllerDeps, "location"> = { ctx, hosts, editor, log };
+  const skills = new SkillCatalog(log);
+  const deps: Omit<ControllerDeps, "location"> = { ctx, hosts, editor, skills, log };
   const panels = new PanelManager({ ...deps, location: "panel" });
   const sidebar = new SidebarProvider({ ...deps, location: "sidebar" }, () => resolveWorkspaceRoot());
-  ctx.subscriptions.push(output, hosts, editor, terminal, panels, sidebar);
+  ctx.subscriptions.push(output, hosts, editor, terminal, skills, panels, sidebar);
 
   // Secondary side bar containers exist from VS Code 1.97; older builds fall back to the activity bar.
   const [maj, min] = vscode.version.split(".").map((n) => parseInt(n, 10));

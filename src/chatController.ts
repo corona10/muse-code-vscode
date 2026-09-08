@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { Conversation } from "./conversation";
 import { EditorContextService } from "./editorContext";
 import { HostManager } from "./hosts";
+import { SkillCatalog } from "./skills";
 import type { ApprovalMode, ReasoningEffort } from "./msp/msp";
 import type { EditorContext, FromWebview, SendPayload, ToWebview, UiConfig } from "./protocol";
 import { turnInputFromPayload } from "./protocol";
@@ -10,6 +11,7 @@ export interface ControllerDeps {
   ctx: vscode.ExtensionContext;
   hosts: HostManager;
   editor: EditorContextService;
+  skills: SkillCatalog;
   log: (l: string) => void;
   location: "panel" | "sidebar";
 }
@@ -36,7 +38,16 @@ export class ChatController implements vscode.Disposable {
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("museCode")) this.post({ type: "config", config: this.config() });
       }),
+      deps.skills.onDidChange((root) => {
+        if (!root || root === this.workspaceRoot) void this.pushSkills();
+      }),
     );
+  }
+
+  /** Sends the workspace's skills to the composer's slash menu. Failures are logged by the catalog and yield an empty list. */
+  private async pushSkills() {
+    const skills = await this.deps.skills.list(this.workspaceRoot);
+    this.post({ type: "skills", skills });
   }
 
   private createConversation(): Conversation {
@@ -105,6 +116,7 @@ export class ChatController implements vscode.Disposable {
     this.ready = true;
     this.post({ type: "init", config: this.config(), state: this.conversation.state });
     this.post({ type: "editorContext", ctx: this.deps.editor.current() });
+    void this.pushSkills();
   }
 
   focusInput() {
@@ -188,6 +200,9 @@ export class ChatController implements vscode.Disposable {
           break;
         case "listModels":
           this.post({ type: "models", models: await this.conversation.listModels() });
+          break;
+        case "listSkills":
+          this.deps.skills.invalidate(this.workspaceRoot);
           break;
         case "setModel":
           await this.conversation.setModel(m.modelId);

@@ -2,7 +2,7 @@
   "name": "muse-code-unofficial",
   "displayName": "Muse Code (Unofficial)",
   "description": "Unofficial, community-built VS Code chat UI for Muse Code, Meta's agentic coding CLI. Not affiliated with Meta or Anthropic. Inspired by the Claude Code VS Code extension.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "corona10",
   "license": "MIT",
   "icon": "resources/muse-logo.png",
@@ -103,6 +103,25 @@
             "Never ask (requires museCode.allowDangerouslyAllowAll)"
           ],
           "description": "Initial approval mode for new conversations. Unset defers to the Muse CLI's configured default."
+        },
+        "museCode.slashSkillScopes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "project",
+              "user",
+              "plugin",
+              "bundled"
+            ]
+          },
+          "uniqueItems": true,
+          "default": [
+            "project",
+            "user",
+            "plugin"
+          ],
+          "description": "Which Muse skills appear as slash commands in the composer (project skills live in .agents/skills/<name>/SKILL.md). Bundled skills are hidden by default to keep the menu short."
         },
         "museCode.model": {
           "type": "string",

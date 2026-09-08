@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- Muse skills appear as slash commands: project skills in `.agents/skills/<name>/SKILL.md` plus user and plugin skills (bundled ones via `museCode.slashSkillScopes`). Each skill is `/skill:<name>`; running `/skill:<name> args` sends `/<name> args` as the prompt so Muse loads the skill, and Tab completes the name to keep typing arguments. `/skills` refreshes the list; edits under `.agents/skills` refresh it automatically.
+
 ## 0.4.0
 
 - "Allow all" can be enabled from the approval-mode picker: choosing it shows a confirmation dialog that turns on `museCode.allowDangerouslyAllowAll` instead of requiring a manual settings edit.

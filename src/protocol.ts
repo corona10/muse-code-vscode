@@ -76,6 +76,16 @@ export interface EditorContext {
   selection: { startLine: number; endLine: number; text: string } | null;
 }
 
+/** A skill the `muse` CLI can load, surfaced as a slash command in the composer. */
+export interface SkillEntry {
+  id: string;
+  name: string;
+  description: string;
+  /** `project`, `user`, `plugin` or `bundled`. */
+  scope: string;
+  path: string;
+}
+
 export type ToWebview =
   | { type: "init"; config: UiConfig; state: UiState }
   | { type: "state"; state: UiState }
@@ -89,6 +99,7 @@ export type ToWebview =
   | { type: "changedFiles"; files: string[] }
   | { type: "sessions"; sessions: SessionSummary[] }
   | { type: "models"; models: ModelCatalogEntry[] }
+  | { type: "skills"; skills: SkillEntry[] }
   | { type: "config"; config: UiConfig }
   | { type: "editorContext"; ctx: EditorContext | null }
   | { type: "insertText"; text: string }
@@ -116,6 +127,7 @@ export type FromWebview =
   | { type: "listSessions" }
   | { type: "resumeSession"; sessionId: string }
   | { type: "listModels" }
+  | { type: "listSkills" }
   | { type: "setModel"; modelId: string }
   | { type: "setApprovalMode"; mode: ApprovalMode }
   | { type: "setReasoningEffort"; effort: ReasoningEffort | null }

@@ -1,5 +1,5 @@
 import type { ApprovalMode, ApprovalRequestParams, Item, ModelCatalogEntry, ReasoningEffort, UserInputAnswer, UserInputRequestParams } from "../msp/msp";
-import type { EditorContext, FromWebview, SessionSummary, ToWebview, UiConfig, UiState } from "../protocol";
+import type { EditorContext, FromWebview, SessionSummary, SkillEntry, ToWebview, UiConfig, UiState } from "../protocol";
 import { escapeHtml, renderMarkdown } from "./markdown";
 
 declare const acquireVsCodeApi: () => { postMessage(m: FromWebview): void; getState(): any; setState(s: any): void };
@@ -20,6 +20,7 @@ const S = {
   images: [] as PendingImage[],
   sessions: null as SessionSummary[] | null,
   models: null as ModelCatalogEntry[] | null,
+  skills: [] as SkillEntry[],
   expanded: new Set<string>(),
   history: [] as string[],
   histIdx: -1,
@@ -492,6 +493,10 @@ function submit() {
     clearInput();
     return;
   }
+  sendPrompt(text);
+}
+/** Sends `text` (plus any attached images) as a turn and clears the composer. */
+function sendPrompt(text: string) {
   const running = !!S.state?.meta.running;
   post({ type: "send", payload: { text, images: S.images.map(({ mediaType, base64Data }) => ({ mediaType, base64Data })), includeEditorContext: S.editorCtxEnabled && !!S.config?.includeEditorContext, ifBusy: running ? "queue" : undefined } });
   remember(text);
@@ -512,7 +517,17 @@ function clearInput() {
 }
 
 // ---------- slash commands ----------
-const SLASH: { cmd: string; desc: string; run: () => void }[] = [
+interface SlashCommand {
+  cmd: string;
+  desc: string;
+  /** Runs the command; `text` is the full composer text so skill commands keep their arguments. */
+  run: (text: string) => void;
+  /** Scope badge for skill commands (project/user/plugin/bundled). */
+  tag?: string;
+  /** Tab inserts `cmd` and leaves the composer open for arguments instead of running. */
+  takesArgs?: boolean;
+}
+const SLASH: SlashCommand[] = [
   { cmd: "/new", desc: "Start a new conversation", run: () => post({ type: "newConversation" }) },
   { cmd: "/clear", desc: "Start a new conversation", run: () => post({ type: "newConversation" }) },
   { cmd: "/resume", desc: "Resume a past conversation", run: openSessions },
@@ -526,15 +541,39 @@ const SLASH: { cmd: string; desc: string; run: () => void }[] = [
   { cmd: "/logout", desc: "Log out of Muse", run: () => post({ type: "command", command: "muse-vscode.logout" }) },
   { cmd: "/logs", desc: "Show extension logs", run: () => post({ type: "command", command: "muse-vscode.showLogs" }) },
   { cmd: "/help", desc: "Open the walkthrough", run: () => post({ type: "command", command: "muse-vscode.openWalkthrough" }) },
+  { cmd: "/skills", desc: "Refresh the skill commands", run: () => post({ type: "listSkills" }) },
 ];
+/**
+ * Built-in commands plus one `/skill:<name>` command per Muse skill (`.agents/skills/<name>/SKILL.md`,
+ * user, plugin…). The prefix keeps skills apart from built-ins consistently. A skill command sends
+ * `/<name> args` as the prompt; Muse then loads the skill via `read_skill`.
+ */
+function slashCommands(): SlashCommand[] {
+  const skills = S.skills.map<SlashCommand>((sk) => {
+    const cmd = `/skill:${sk.name.toLowerCase()}`;
+    return { cmd, desc: skillSummary(sk.description), tag: sk.scope, takesArgs: true, run: (text) => sendPrompt(skillPrompt(sk, text)) };
+  });
+  return [...SLASH, ...skills];
+}
+/** Turns "/skill:name args" (or a partially typed "/ski args") into the "/name args" prompt Muse understands. */
+function skillPrompt(sk: SkillEntry, text: string): string {
+  const t = text.trim();
+  const args = t.startsWith("/") ? t.replace(/^\S+\s*/, "") : t; // drop the command token, complete or not
+  return `/${sk.name}${args ? " " + args : ""}`;
+}
+function skillSummary(desc: string): string {
+  const one = desc.replace(/\s+/g, " ").trim();
+  const sentence = one.match(/^(.{0,110}?[.!?])(\s|$)/)?.[1] ?? one;
+  return sentence.length > 110 ? sentence.slice(0, 107) + "…" : sentence;
+}
 function runSlash(text: string): boolean {
   const word = text.split(/\s+/)[0].toLowerCase();
-  const match = SLASH.find((s) => s.cmd === word) ?? (S.popup === "slash" ? slashSelected() : undefined);
+  const match = slashCommands().find((s) => s.cmd === word) ?? (S.popup === "slash" ? slashSelected() : undefined);
   if (!match) return false;
-  match.run();
+  match.run(text);
   return true;
 }
-const slashMatches = () => SLASH.filter((s) => s.cmd.startsWith(S.slashFilter.toLowerCase()));
+const slashMatches = () => slashCommands().filter((s) => s.cmd.startsWith(S.slashFilter.toLowerCase()));
 const slashSelected = () => slashMatches()[S.slashIdx];
 /** Moves the highlighted slash command by `delta`, wrapping around, and re-renders the popup. */
 function moveSlash(delta: number) {
@@ -553,7 +592,7 @@ function openPopup(kind: NonNullable<typeof S.popup>) {
     const list = slashMatches();
     if (!list.length) return closePopup();
     S.slashIdx = Math.min(S.slashIdx, list.length - 1);
-    popup.append(...list.map((s, i) => h("div", { class: `popup-row ${i === S.slashIdx ? "active" : ""}`, onclick: () => { s.run(); clearInput(); } }, h("span", { class: "mono" }, s.cmd), h("span", { class: "muted" }, s.desc))));
+    popup.append(...list.map((s, i) => h("div", { class: `popup-row ${i === S.slashIdx ? "active" : ""}`, onclick: () => { s.run(input.value); clearInput(); } }, h("span", {}, h("span", { class: "mono" }, s.cmd), s.tag ? h("span", { class: "tag" }, s.tag) : null), h("span", { class: "muted" }, s.desc))));
     popup.querySelector(".popup-row.active")?.scrollIntoView({ block: "nearest" });
   } else if (kind === "mode") {
     popup.append(h("div", { class: "popup-title" }, "Approval mode"));
@@ -671,10 +710,17 @@ input.addEventListener("keydown", (e) => {
   if (S.popup === "slash" && (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey))) {
     e.preventDefault();
     const sel = slashSelected();
-    if (sel) {
-      sel.run();
-      clearInput();
+    if (!sel) return;
+    if (e.key === "Tab" && sel.takesArgs) {
+      // Complete the command and keep typing: "/name " followed by the skill's arguments.
+      input.value = sel.cmd + " ";
+      closePopup();
+      autosize();
+      persist();
+      return;
     }
+    sel.run(input.value);
+    clearInput();
     return;
   }
   if (e.key === "Enter") {
@@ -776,6 +822,10 @@ window.addEventListener("message", (ev: MessageEvent<ToWebview>) => {
       S.feedbackFor = null;
       persist({ panelState: { workspaceRoot: m.state.workspaceRoot, sessionId: m.state.sessionId } });
       renderAll();
+      break;
+    case "skills":
+      S.skills = m.skills;
+      if (S.popup === "slash") openPopup("slash");
       break;
     case "config":
       S.config = m.config;

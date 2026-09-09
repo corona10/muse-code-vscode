@@ -159,3 +159,16 @@ textarea.feedback, input.note { width: 100%; margin-top: 6px; background: var(--
 .toast { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius); background: var(--vscode-notifications-background, var(--vscode-editorWidget-background)); border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,.3); }
 .toast.error { border-left: 3px solid var(--bad); } .toast.warning { border-left: 3px solid var(--warn); } .toast.info { border-left: 3px solid var(--accent); }
 .toast-text { flex: 1; word-break: break-word; }
+
+/* inline diffs for file edits */
+.diff-body { border-left-color: transparent; padding-left: 0; }
+.diff { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--code-bg); margin: 4px 0 2px; font-family: var(--mono); font-size: 11.5px; }
+.diff-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 8px; border-bottom: 1px solid var(--border); font-size: 11px; }
+.diff-stat { white-space: nowrap; }
+.diff-lines { max-height: 320px; overflow: auto; }
+.diff-line { display: flex; white-space: pre; line-height: 1.5; }
+.diff-sign { flex: 0 0 16px; text-align: center; user-select: none; opacity: .7; }
+.diff-text { flex: 1; padding-right: 8px; }
+.diff-add { background: var(--vscode-diffEditor-insertedLineBackground, rgba(63,185,80,.18)); }
+.diff-del { background: var(--vscode-diffEditor-removedLineBackground, rgba(241,76,76,.18)); }
+.diff-hunk { color: var(--muted); background: var(--hover); padding-left: 16px; }

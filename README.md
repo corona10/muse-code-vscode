@@ -58,6 +58,8 @@ Inside the chat: `Enter` sends, `Shift+Enter` inserts a newline, `Esc` interrupt
 | `museCode.model` / `museCode.reasoningEffort` | Defaults for new conversations. |
 | `museCode.autosave` | Save all files before each prompt. |
 | `museCode.focusView` | Hide tool calls and reasoning; show only prompts and replies. |
+| `museCode.showInlineDiffs` | Show each file edit as an inline diff in the chat (default on). |
+| `museCode.sendWhileRunning` | `steer` (default): a message sent while Muse is working goes straight into the running turn; `queue`: it waits and starts a new turn afterwards. |
 | `museCode.useCtrlEnterToSend` | Send with Ctrl/Cmd+Enter so Enter inserts newlines. |
 | `museCode.preferredLocation` | `panel` (editor tab) or `sidebar`. |
 | `museCode.includeEditorContext` | Attach the active file and selection to prompts. |

@@ -68,7 +68,8 @@ const queued = h("div", { class: "queued" });
 const live = h("div", { class: "live" });
 const todoBox = h("div", { class: "todo" });
 const chips = h("div", { class: "chips" });
-const input = h("textarea", { class: "input", rows: 1, placeholder: "Ask Muse anything… (@ files, / commands, ! shell)" });
+const IDLE_PLACEHOLDER = "Ask Muse anything… (@ files, / commands, ! shell)";
+const input = h("textarea", { class: "input", rows: 1, placeholder: IDLE_PLACEHOLDER });
 const footer = h("div", { class: "composer-footer" });
 const composer = h("div", { class: "composer" }, todoBox, chips, input, footer);
 const popup = h("div", { class: "popup", hidden: true });
@@ -179,13 +180,18 @@ function renderItem(item: Item): HTMLElement {
         statusIcon(item.status),
       );
       el.append(head);
+      const diff = isEditTool(item.tool) && S.config?.showInlineDiffs !== false && item.status !== "inProgress" ? editDiff(item) : null;
       if (expanded) {
         const bodyEl = h("div", { class: "row-body" });
         if (sum.path) bodyEl.append(h("div", { class: "row-actions" }, h("button", { class: "link-btn", onclick: () => post({ type: "openFile", path: sum.path!, line: sum.line }) }, icon("go-to-file"), " Open"), h("button", { class: "link-btn", onclick: () => post({ type: "openDiff", path: sum.path! }) }, icon("diff"), " View changes")));
+        if (diff) bodyEl.append(renderDiff(diff, sum.path));
         bodyEl.append(h("div", { class: "kv" }, "Arguments"), h("pre", { class: "args" }, prettyJson(item.args ?? "")));
-        if (item.visibleOutput) bodyEl.append(h("div", { class: "kv" }, "Output"), h("pre", { class: "output" }, item.visibleOutput));
+        if (item.visibleOutput && !diff) bodyEl.append(h("div", { class: "kv" }, "Output"), h("pre", { class: "output" }, item.visibleOutput));
         if (item.failureReason) bodyEl.append(h("div", { class: "kv bad" }, `Failed: ${item.failureReason}`));
         el.append(bodyEl);
+      } else if (diff) {
+        // Collapsed edit: the diff itself is the summary, like a code review comment.
+        el.append(h("div", { class: "row-body diff-body" }, renderDiff(diff, sum.path)));
       } else if (item.status === "inProgress" && item.visibleOutput) {
         el.append(h("pre", { class: "output preview" }, item.visibleOutput.slice(-400)));
       }
@@ -220,6 +226,94 @@ function toolIcon(tool?: string): string {
   if (/todo|task/.test(t)) return "checklist";
   if (/agent|spawn/.test(t)) return "organization";
   return "tools";
+}
+
+// ---------- inline diffs for file edits ----------
+interface DiffLine { kind: "add" | "del" | "ctx" | "hunk"; text: string }
+interface EditDiff { lines: DiffLine[]; adds: number; dels: number; note?: string }
+
+function isEditTool(tool?: string): boolean {
+  return /write|edit|patch|create|replace|apply/.test((tool ?? "").toLowerCase()) && !/todo/.test((tool ?? "").toLowerCase());
+}
+
+/** Builds the diff for an edit tool call: the server's unified diff in `visibleOutput` when present, else derived from the arguments. */
+function editDiff(item: Item): EditDiff | null {
+  const fromOutput = parseUnifiedDiff(item.visibleOutput ?? "");
+  if (fromOutput) return fromOutput;
+  let args: any = null;
+  try {
+    args = item.args ? JSON.parse(item.args) : null;
+  } catch {
+    return null;
+  }
+  if (!args || typeof args !== "object") return null;
+  const oldText = firstString(args, ["find", "old_string", "old_str", "oldText", "old", "search"]);
+  const newText = firstString(args, ["replace", "new_string", "new_str", "newText", "new", "replacement"]);
+  if (oldText !== null && newText !== null) return lineDiff(oldText, newText);
+  const content = firstString(args, ["content", "contents", "text", "body"]);
+  if (content !== null) {
+    const lines = content.split("\n").map<DiffLine>((t) => ({ kind: "add", text: t }));
+    return { lines, adds: lines.length, dels: 0, note: "written" };
+  }
+  return null;
+}
+
+function firstString(o: any, keys: string[]): string | null {
+  for (const k of keys) if (typeof o[k] === "string") return o[k];
+  return null;
+}
+
+/** Parses the `--- original` / `+++ updated` block Muse's edit tools emit; returns null when there is none. */
+function parseUnifiedDiff(out: string): EditDiff | null {
+  const rows = out.split("\n");
+  const start = rows.findIndex((r, i) => r.startsWith("--- ") && rows[i + 1]?.startsWith("+++ "));
+  if (start < 0) return null;
+  const lines: DiffLine[] = [];
+  let adds = 0;
+  let dels = 0;
+  for (const r of rows.slice(start + 2)) {
+    if (r.startsWith("@@")) lines.push({ kind: "hunk", text: r });
+    else if (r.startsWith("+")) { adds++; lines.push({ kind: "add", text: r.slice(1) }); }
+    else if (r.startsWith("-")) { dels++; lines.push({ kind: "del", text: r.slice(1) }); }
+    else if (r.startsWith(" ")) lines.push({ kind: "ctx", text: r.slice(1) });
+    else if (r === "") lines.push({ kind: "ctx", text: "" });
+    else break; // trailing prose after the diff
+  }
+  while (lines.length && lines[lines.length - 1].kind === "ctx" && lines[lines.length - 1].text === "") lines.pop();
+  return lines.length ? { lines, adds, dels } : null;
+}
+
+/** Minimal LCS line diff for find/replace edits when the server sent no diff. */
+function lineDiff(a: string, b: string): EditDiff {
+  const A = a.split("\n");
+  const B = b.split("\n");
+  const n = A.length;
+  const m = B.length;
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const lines: DiffLine[] = [];
+  let adds = 0;
+  let dels = 0;
+  let i = 0;
+  let j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && A[i] === B[j]) { lines.push({ kind: "ctx", text: A[i] }); i++; j++; }
+    else if (j < m && (i >= n || dp[i][j + 1] >= dp[i + 1][j])) { lines.push({ kind: "add", text: B[j] }); adds++; j++; }
+    else { lines.push({ kind: "del", text: A[i] }); dels++; i++; }
+  }
+  return { lines, adds, dels };
+}
+
+function renderDiff(d: EditDiff, filePath?: string): HTMLElement {
+  const box = h("div", { class: "diff" });
+  box.append(h("div", { class: "diff-head" },
+    filePath ? h("button", { class: "link-btn mono", onclick: () => post({ type: "openFile", path: filePath }) }, filePath) : h("span", { class: "muted" }, d.note ?? "edit"),
+    h("span", { class: "diff-stat" }, d.adds ? h("span", { class: "ok" }, `+${d.adds}`) : null, d.dels ? h("span", { class: "bad" }, ` −${d.dels}`) : null),
+  ));
+  const body = h("div", { class: "diff-lines" });
+  for (const l of d.lines) body.append(h("div", { class: `diff-line diff-${l.kind}` }, h("span", { class: "diff-sign" }, l.kind === "add" ? "+" : l.kind === "del" ? "−" : " "), h("span", { class: "diff-text" }, l.text)));
+  box.append(body);
+  return box;
 }
 
 function prettyJson(s: string): string {
@@ -459,6 +553,7 @@ const basename = (p: string) => p.split(/[\\/]/).pop() ?? p;
 function renderFooter() {
   footer.replaceChildren();
   const m = S.state?.meta;
+  input.placeholder = m?.running ? (S.config?.sendWhileRunning === "queue" ? "Queue a message for after this turn…" : "Send a message into the running turn…") : IDLE_PLACEHOLDER;
   const cu = m?.contextUsage;
   const pct = cu?.windowTokens ? Math.min(100, Math.round((cu.usedTokens / cu.windowTokens) * 100)) : null;
   footer.append(...nodes(
@@ -498,7 +593,8 @@ function submit() {
 /** Sends `text` (plus any attached images) as a turn and clears the composer. */
 function sendPrompt(text: string) {
   const running = !!S.state?.meta.running;
-  post({ type: "send", payload: { text, images: S.images.map(({ mediaType, base64Data }) => ({ mediaType, base64Data })), includeEditorContext: S.editorCtxEnabled && !!S.config?.includeEditorContext, ifBusy: running ? "queue" : undefined } });
+  // While a turn runs, Enter steers the message into it (like Claude Code) unless configured to queue instead.
+  post({ type: "send", payload: { text, images: S.images.map(({ mediaType, base64Data }) => ({ mediaType, base64Data })), includeEditorContext: S.editorCtxEnabled && !!S.config?.includeEditorContext, ifBusy: running ? (S.config?.sendWhileRunning ?? "steer") : undefined } });
   remember(text);
   clearInput();
 }
@@ -614,7 +710,7 @@ function openPopup(kind: NonNullable<typeof S.popup>) {
     } else for (const m of S.models) popup.append(h("div", { class: `popup-row ${m.isActive || m.modelId === S.state?.meta.modelId ? "active" : ""}`, onclick: () => { post({ type: "setModel", modelId: m.modelId }); closePopup(); } }, h("span", {}, m.displayLabel, m.isDefault ? h("span", { class: "tag" }, "default") : null), h("span", { class: "muted small" }, m.description ?? (m.contextLimit ? `${fmtTokens(m.contextLimit)} ctx` : ""))));
   }
 }
-const MODE_DESC: Record<string, string> = { onRequest: "Ask when a tool requests approval", promptUnmatched: "Ask unless a policy rule allows it", denyUnmatched: "Deny unless a policy rule allows it", allowAll: "Never ask (dangerous)" };
+const MODE_DESC: Record<string, string> = { onRequest: "Ask when a tool requests approval", promptUnmatched: "Ask unless a policy rule allows it", denyUnmatched: "Deny unless a policy rule allows it", allowAll: "Auto-approve; still asks for shell commands it cannot parse (dangerous)" };
 function closePopup() {
   S.popup = null;
   popup.hidden = true;

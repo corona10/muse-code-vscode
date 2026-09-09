@@ -94,6 +94,8 @@ export class ChatController implements vscode.Disposable {
     return {
       focusView: cfg.get<boolean>("focusView", false),
       useCtrlEnterToSend: cfg.get<boolean>("useCtrlEnterToSend", false),
+      sendWhileRunning: cfg.get<"steer" | "queue">("sendWhileRunning", "steer"),
+      showInlineDiffs: cfg.get<boolean>("showInlineDiffs", true),
       hideOnboarding: cfg.get<boolean>("hideOnboarding", false),
       includeEditorContext: cfg.get<boolean>("includeEditorContext", true),
       allowAllEnabled: cfg.get<boolean>("allowDangerouslyAllowAll", false),

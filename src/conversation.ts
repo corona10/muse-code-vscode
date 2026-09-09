@@ -410,6 +410,8 @@ export class Conversation extends EventEmitter {
     if (r.disposition === "queued") {
       this.state.meta.queuedTurns.push({ turnId: r.turnId, text: displayText });
       this.patchMeta({ queuedTurns: this.state.meta.queuedTurns });
+    } else if (r.disposition === "steered") {
+      // Merged into the running turn: the server emits the user message item with `steered: true`; nothing to track here.
     } else if (r.disposition === "started" && !this.state.meta.running) {
       this.patchMeta({ running: true, activeTurnId: r.turnId });
     }

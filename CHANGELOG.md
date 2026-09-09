@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- File edits show as inline diffs in the chat: each `edit_file` / `write_file` call renders its added and removed lines with a +/− count and a link to the file, using the diff Muse's edit tools report (or a line diff of the find/replace arguments when they don't). Expanding the call still shows the raw arguments. Turn off with `museCode.showInlineDiffs`.
+- Sending a message while Muse is working now steers it into the running turn instead of queueing it, matching the Claude Code extension. Set `museCode.sendWhileRunning` to `queue` for the old behaviour. The composer placeholder says which will happen.
+- Approval mode picker: the "Allow all" description now says that Muse still asks for shell commands it cannot parse statically (verified against `muse serve`).
+
 ## 0.5.0
 
 - Muse skills appear as slash commands: project skills in `.agents/skills/<name>/SKILL.md` plus user and plugin skills (bundled ones via `museCode.slashSkillScopes`). Each skill is `/skill:<name>`; running `/skill:<name> args` sends `/<name> args` as the prompt so Muse loads the skill, and Tab completes the name to keep typing arguments. `/skills` refreshes the list; edits under `.agents/skills` refresh it automatically.

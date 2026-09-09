@@ -20,6 +20,10 @@ export type HostStatus = "starting" | "ready" | "stopped" | "failed";
 export interface UiConfig {
   focusView: boolean;
   useCtrlEnterToSend: boolean;
+  /** What Enter does while a turn is running: steer into it (Claude Code style) or queue for after it. */
+  sendWhileRunning: "steer" | "queue";
+  /** Render file edits as inline diffs in the transcript. */
+  showInlineDiffs: boolean;
   hideOnboarding: boolean;
   includeEditorContext: boolean;
   allowAllEnabled: boolean;

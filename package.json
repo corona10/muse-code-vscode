@@ -2,7 +2,7 @@
   "name": "muse-code-unofficial",
   "displayName": "Muse Code (Unofficial)",
   "description": "Unofficial, community-built VS Code chat UI for Muse Code, Meta's agentic coding CLI. Not affiliated with Meta or Anthropic. Inspired by the Claude Code VS Code extension.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "corona10",
   "license": "MIT",
   "icon": "resources/muse-logo.png",
@@ -85,7 +85,7 @@
           "type": "boolean",
           "default": false,
           "scope": "machine",
-          "description": "Allow the 'Allow all' approval mode, which never asks before running tools. Recommended only for sandboxes with no internet access."
+          "description": "Allow the 'Allow all' approval mode, which auto-approves tool actions. Muse still asks for shell commands it cannot parse statically (env-var prefixes, unresolved expansions, some compound commands). Recommended only for sandboxes with no internet access."
         },
         "museCode.initialApprovalMode": {
           "type": "string",
@@ -160,6 +160,24 @@
           "default": false,
           "scope": "application",
           "description": "Focus view: hide tool calls and other in-progress activity in the chat, showing only your prompts and Muse's responses. Toggle with the Muse Code: Toggle Focus view command or ctrl+alt+f."
+        },
+        "museCode.showInlineDiffs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show each file edit Muse makes as an inline diff in the chat (added and removed lines). Turn off to see only the tool call summary."
+        },
+        "museCode.sendWhileRunning": {
+          "type": "string",
+          "enum": [
+            "steer",
+            "queue"
+          ],
+          "enumDescriptions": [
+            "Send the message into the running turn right away, so Muse takes it into account on its next step (like Claude Code)",
+            "Hold the message and start a new turn with it after the current one finishes"
+          ],
+          "default": "steer",
+          "description": "What happens when you send a message while Muse is still working."
         },
         "museCode.useCtrlEnterToSend": {
           "type": "boolean",

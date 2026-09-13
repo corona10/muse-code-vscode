@@ -1,5 +1,7 @@
 # Muse Code for VS Code (Unofficial)
 
+> **Fork note (aminamos):** this fork tracks upstream plus fixes for Muse CLI 1.2.1 (server-request approval receipts), Windows `.cmd` shim resolution, and a registry-mirror-free `package-lock.json`. See the [changelog](CHANGELOG.md) and the PR upstream.
+
 A native VS Code chat UI for [Muse Code](https://developer.meta.com/ai/lp/muse-code/), Meta's agentic terminal coding agent.
 
 > **Unofficial community project.** This extension is not made, endorsed, or supported by Meta. "Muse" and "Muse Code" are Meta's names for their product; they are used here only to describe what the extension connects to.

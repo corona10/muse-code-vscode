@@ -40,7 +40,8 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "node --test src/autoApprove.test.ts src/judge.test.ts",
-    "package": "npm run typecheck && npm test && node esbuild.mjs --production && vsce package --no-dependencies",
+    "check:lockfile": "node scripts/check-lockfile.mjs",
+    "package": "npm run typecheck && npm test && npm run check:lockfile && node esbuild.mjs --production && vsce package --no-dependencies",
     "vscode:prepublish": "node esbuild.mjs --production",
     "smoke": "node scripts/smoke/run.mjs",
     "test:markdown": "node scripts/check-markdown-links.mjs"

@@ -27,11 +27,20 @@ import type {
   ViewPageResult,
 } from "./msp/msp";
 import type { SessionSummary, ToWebview, UiMeta, UiState } from "./protocol";
+import { autoApproveChoice, resolutionNote } from "./autoApprove";
+import { reviewApproval } from "./judge";
 
 export interface ConversationOptions {
   approvalMode?: ApprovalMode | null;
   modelId?: string;
   reasoningEffort?: ReasoningEffort | null;
+  /** Auto-decide low-impact approvals (read-only file access, once-only scope). Never widens scope. */
+  autoApproveLowRisk?: boolean;
+  /**
+   * Second-opinion risk screen in front of auto-approve (default on). It can
+   * only veto an auto-approval and force human review — it never approves.
+   */
+  judgeReview?: boolean;
 }
 
 const FILE_TOOL = /write|edit|patch|create|replace|apply|delete|remove|rename|move|insert/i;
@@ -334,7 +343,20 @@ export class Conversation extends EventEmitter {
       case "approval/requested": {
         const a = params as ApprovalRequestParams;
         this.state.approvals = this.state.approvals.filter((x) => x.approvalId !== a.approvalId).concat(a);
-        if (live) this.send({ type: "approval", approval: a });
+        if (live) {
+          const auto = this.opts.autoApproveLowRisk ? autoApproveChoice(a) : null;
+          const verdict = auto && this.opts.judgeReview !== false ? reviewApproval(a) : null;
+          if (!auto) this.send({ type: "approval", approval: a });
+          else if (verdict?.risky) {
+            this.send({ type: "approval", approval: a });
+            this.toast("warning", `Second-opinion review flagged this request (${verdict.reason}) — needs your review.`);
+          } else {
+            void this.decideApproval(a.approvalId, auto.choiceId, a.currentRequirementId).then(
+              () => this.toast("info", `Auto-approved low-risk request: ${auto.reason}.`),
+              () => this.send({ type: "approval", approval: a }), // decide failed: fall back to the card
+            );
+          }
+        }
         break;
       }
       case "approval/updated": {
@@ -347,10 +369,15 @@ export class Conversation extends EventEmitter {
         }
         break;
       }
-      case "approval/resolved":
+      case "approval/resolved": {
         this.state.approvals = this.state.approvals.filter((x) => x.approvalId !== params.approvalId);
-        if (live) this.send({ type: "approvalResolved", approvalId: params.approvalId });
+        if (live) {
+          this.send({ type: "approvalResolved", approvalId: params.approvalId });
+          const note = resolutionNote(params);
+          if (note) this.toast("info", note);
+        }
         break;
+      }
       case "userInput/requested": {
         const u = params as UserInputRequestParams;
         this.state.userInputs = this.state.userInputs.filter((x) => x.userInputId !== u.userInputId).concat(u);

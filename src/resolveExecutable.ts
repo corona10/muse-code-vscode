@@ -22,8 +22,32 @@ export async function resolveExecutable(configured: string, log: (l: string) => 
   if (!found && process.platform !== "win32") found = await findViaLoginShell(name, log);
 
   if (!found) return name; // let spawn fail with ENOENT and report it
+  found = await resolveWindowsShim(found, log);
   log(`resolved '${name}' -> ${found}`);
   cache.set(name, found);
+  return found;
+}
+
+/**
+ * On Windows the Muse installer ships a `muse.cmd` shim (PowerShell launcher)
+ * plus a versioned `muse-bin-<ver>.exe`, with the active version in `.muse-version`.
+ * Node cannot spawn a .cmd without a shell (EINVAL), so prefer the real binary.
+ * Falls back to the shim when the layout is unfamiliar.
+ */
+async function resolveWindowsShim(found: string, log: (l: string) => void): Promise<string> {
+  if (process.platform !== "win32" || !/\.cmd$/i.test(found)) return found;
+  try {
+    const dir = path.dirname(found);
+    const version = (await fs.readFile(path.join(dir, ".muse-version"), "utf8")).trim();
+    if (!version || /[^\w.+-]/.test(version)) return found;
+    const exe = path.join(dir, `muse-bin-${version}.exe`);
+    if (await isExecutable(exe)) {
+      log(`resolved shim '${found}' -> ${exe}`);
+      return exe;
+    }
+  } catch {
+    // fall through to the shim below
+  }
   return found;
 }
 

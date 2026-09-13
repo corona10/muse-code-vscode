@@ -58,6 +58,8 @@ export class ChatController implements vscode.Disposable {
       approvalMode: approvalMode || null,
       modelId: cfg.get<string>("model") || undefined,
       reasoningEffort: (cfg.get<string>("reasoningEffort") as ReasoningEffort | undefined) || null,
+      autoApproveLowRisk: cfg.get<boolean>("autoApproveLowRisk", false),
+      judgeReview: cfg.get<boolean>("judgeReview", true),
     });
     conv.on("message", (m: ToWebview) => {
       this.post(m);

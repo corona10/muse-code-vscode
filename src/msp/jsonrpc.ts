@@ -22,9 +22,12 @@ export class JsonRpcError extends Error {
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void; method: string };
 
+export type ServerRequestHandler = (params: any) => unknown | Promise<unknown>;
+
 export class NdjsonRpcClient extends EventEmitter {
   private nextId = 1;
   private pending = new Map<number, Pending>();
+  private handlers = new Map<string, ServerRequestHandler>();
   private buffer = "";
   private closed = false;
 
@@ -56,6 +59,36 @@ export class NdjsonRpcClient extends EventEmitter {
     this.proc.stdin!.write(JSON.stringify({ jsonrpc: "2.0", method, params }) + "\n");
   }
 
+  /** Register a handler for a server-initiated request (`approval/request`, ...). */
+  handleRequest(method: string, handler: ServerRequestHandler): void {
+    this.handlers.set(method, handler);
+  }
+
+  private respond(id: number | string, result: unknown): void {
+    if (this.closed) return;
+    this.proc.stdin!.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");
+  }
+
+  private respondError(id: number | string, code: number, message: string): void {
+    if (this.closed) return;
+    this.proc.stdin!.write(JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } }) + "\n");
+  }
+
+  private async onServerRequest(id: number | string, method: string, params: any): Promise<void> {
+    const handler = this.handlers.get(method);
+    if (!handler) {
+      this.emit("log", `no handler for server request '${method}'; replying methodNotFound`);
+      this.respondError(id, -32601, `Method not found: ${method}`);
+      return;
+    }
+    try {
+      this.respond(id, (await handler(params)) ?? {});
+    } catch (e: any) {
+      this.emit("log", `server request '${method}' handler failed: ${e?.message ?? e}`);
+      this.respondError(id, -32603, `Handler failed: ${e?.message ?? e}`);
+    }
+  }
+
   private onData(chunk: string) {
     this.buffer += chunk;
     let nl: number;
@@ -84,8 +117,13 @@ export class NdjsonRpcClient extends EventEmitter {
       return;
     }
     if (typeof msg.method === "string") {
-      // Server-initiated notification (or request; MSP v1 only pushes notifications).
-      this.emit("notification", msg.method, msg.params ?? {}, msg.id);
+      if (msg.id !== undefined && msg.id !== null) {
+        // Server-initiated request: must be answered (receipt or error).
+        void this.onServerRequest(msg.id, msg.method, msg.params ?? {});
+        return;
+      }
+      // Server-initiated notification (no id, no response).
+      this.emit("notification", msg.method, msg.params ?? {});
       return;
     }
     if (msg.id === null && msg.error) {

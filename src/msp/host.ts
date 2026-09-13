@@ -104,9 +104,19 @@ export class MuseHost extends EventEmitter {
     this.client = client;
     client.on("log", (l: string) => this.opts.log(l));
     client.on("notification", (method: string, params: any) => {
-      this.emit("notification", method, params);
-      const sid = params?.sessionId ?? params?.session?.sessionId;
-      if (sid) this.emit(`session:${sid}`, method, params);
+      this.fanOut(method, params);
+    });
+    // Newer hosts deliver approvals / prompts as server-initiated requests that
+    // must be answered with a presentation receipt ({}). They carry the same
+    // params as the notification channel, so fan them out identically; the
+    // decision / answer still travels as approval/decide / userInput/answer.
+    client.handleRequest("approval/request", (params: any) => {
+      this.fanOut("approval/requested", params);
+      return {};
+    });
+    client.handleRequest("userInput/request", (params: any) => {
+      this.fanOut("userInput/requested", params);
+      return {};
     });
     client.on("exit", (code: number | null) => {
       const wasReady = this.status === "ready";
@@ -139,6 +149,13 @@ export class MuseHost extends EventEmitter {
     await this.ensureStarted();
     if (!this.client) throw new Error("Muse host is not running");
     return this.client.request<T>(method, params);
+  }
+
+  /** Fan a server notification (or translated server request) out by session id. */
+  private fanOut(method: string, params: any): void {
+    this.emit("notification", method, params);
+    const sid = params?.sessionId ?? params?.session?.sessionId;
+    if (sid) this.emit(`session:${sid}`, method, params);
   }
 
   /** Whether the last failure looks like an authentication problem worth a login prompt. */

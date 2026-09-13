@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+- Security: Markdown links in replies are tokenized before the other inline passes run, so text in a model reply can no longer add attributes to a generated link; the webview CSP no longer allows `img-src https:`. Regression check: `npm run test:markdown`.
+- Muse CLI 1.2.1: approvals and user-input prompts that arrive as server-initiated requests are acknowledged and handled; types regenerated from the 1.2.1 schema.
+- Windows: a `muse.cmd` launcher shim resolves to its versioned `muse-bin-<ver>.exe`, so `muse serve` and the skills list start.
+- Optional smart auto-approve for read-only file access (`museCode.autoApproveLowRisk`, off by default) with a local review that can only veto (`museCode.judgeReview`); toasts when the CLI's approval judge resolves a request. Unit tests: `npm test`.
+- `package-lock.json` resolves from `registry.npmjs.org`, so `npm install` works from a fresh clone.
+- Source maps are no longer shipped in the `.vsix`.
+
 ## 0.6.0
 
 - File edits show as inline diffs in the chat: each `edit_file` / `write_file` call renders its added and removed lines with a +/− count and a link to the file, using the diff Muse's edit tools report (or a line diff of the find/replace arguments when they don't). Expanding the call still shows the raw arguments. Turn off with `museCode.showInlineDiffs`.

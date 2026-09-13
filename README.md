@@ -57,6 +57,7 @@ Inside the chat: `Enter` sends, `Shift+Enter` inserts a newline, `Esc` interrupt
 | `museCode.initialApprovalMode` | `onRequest`, `promptUnmatched`, `denyUnmatched` or `allowAll` for new conversations. |
 | `museCode.allowDangerouslyAllowAll` | Permit the `allowAll` mode (never asks). Sandboxes only. Picking "Allow all" in the mode picker offers to turn this on after a confirmation. |
 | `museCode.autoApproveLowRisk` | Smart auto-approve for low-impact approvals (default off): read-only file access is approved automatically, once-only scope, never widened. Everything else still asks. Unknown subjects are never auto-approved. |
+| `museCode.judgeReview` | Second-opinion risk screen in front of auto-approve (default on): a local deterministic review can veto a proposed auto-approval and force human review. It can never approve anything itself. |
 | `museCode.slashSkillScopes` | Which Muse skills show up as `/` commands: any of `project`, `user`, `plugin`, `bundled` (default: all but `bundled`). |
 | `museCode.model` / `museCode.reasoningEffort` | Defaults for new conversations. |
 | `museCode.autosave` | Save all files before each prompt. |
@@ -80,6 +81,10 @@ There is no risk-aware mode in Muse itself — the four modes above are all-or-n
 - only `fileAccess` + `access: read` subjects; shell, network, process, writes, and unknown subject kinds always ask (per MSP SS5.2, unknown kinds are never auto-approved);
 - only a server-offered `approved` + `once` choice is used — the scope is never widened to session/always;
 - if the decide call fails, the normal approval card appears as fallback.
+
+### Second-opinion review (`museCode.judgeReview`, default on)
+
+The CLI's own LLM approval judge (`--approval-judge`, default on) has no toggle over MSP/`serve`, so the extension ships a local deterministic second opinion instead (`src/judge.ts`). When auto-approve proposes an approval, the review screens `judgeEscalated`, `protectedWrite`, the subject, the tool name, and the raw args (destructive commands, pipe-to-shell, obfuscated PowerShell, possible credentials, path traversal, sensitive system paths). A hit vetoes the auto-approval: the normal card appears plus a warning toast naming the reason. It never approves — it only adds friction. Turn it off with `museCode.judgeReview: false` if you want raw auto-approve.
 
 ### Muse CLI 1.2.1 changes
 

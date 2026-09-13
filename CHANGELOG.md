@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 (aminamos fork)
+
+- DIY second-opinion judge: new `museCode.judgeReview` setting (default on) that screens proposed smart auto-approvals (`src/judge.ts`, covered by `src/judge.test.ts`). It checks `judgeEscalated`, `protectedWrite`, subject kind/access, tool name, and raw args (destructive commands, pipe-to-shell, `-EncodedCommand`, possible credentials, `..` traversal, sensitive system paths). A hit vetoes the auto-approval and shows the card plus a warning toast with the reason. Escalate-only by design: it can never approve anything itself, and `judgeReview: false` restores raw auto-approve.
+
 ## 0.5.3 (aminamos fork)
 
 - Judge visibility: approvals resolved by the CLI's LLM approval judge now raise an info toast ("The LLM approval judge approved/denied this request"). There is deliberately no on/off toggle — 1.2.1 exposes no control surface for the judge (no MSP param, no `serve` flag, no session param; the judge runs per host configuration, default on). Covered by `resolutionNote` cases in `src/autoApprove.test.ts`.

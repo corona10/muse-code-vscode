@@ -2,7 +2,7 @@
   "name": "muse-code-unofficial",
   "displayName": "Muse Code (Unofficial)",
   "description": "Unofficial, community-built VS Code chat UI for Muse Code, Meta's agentic coding CLI. Not affiliated with Meta or Anthropic. Inspired by the Claude Code VS Code extension.",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "publisher": "corona10",
   "license": "MIT",
   "icon": "resources/muse-logo.png",
@@ -39,7 +39,7 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/autoApprove.test.ts",
+    "test": "node --test src/autoApprove.test.ts src/judge.test.ts",
     "package": "npm run typecheck && npm test && node esbuild.mjs --production && vsce package --no-dependencies",
     "vscode:prepublish": "node esbuild.mjs --production",
     "smoke": "node scripts/smoke/run.mjs"
@@ -93,6 +93,12 @@
           "default": false,
           "scope": "machine",
           "description": "Smart auto-approve for low-impact approvals: read-only file access is approved automatically (once-only scope, never widened). Everything else still asks. Unknown subjects are never auto-approved."
+        },
+        "museCode.judgeReview": {
+          "type": "boolean",
+          "default": true,
+          "scope": "machine",
+          "description": "Second-opinion risk screen in front of smart auto-approve: when an auto-approval is proposed, a local deterministic review can veto it and force human review instead. It can never approve anything itself — it only adds friction. Server-escalated, protected-write, non-read, and suspicious-arg requests always ask."
         },
         "museCode.initialApprovalMode": {
           "type": "string",

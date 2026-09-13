@@ -27,11 +27,14 @@ import type {
   ViewPageResult,
 } from "./msp/msp";
 import type { SessionSummary, ToWebview, UiMeta, UiState } from "./protocol";
+import { autoApproveChoice } from "./autoApprove";
 
 export interface ConversationOptions {
   approvalMode?: ApprovalMode | null;
   modelId?: string;
   reasoningEffort?: ReasoningEffort | null;
+  /** Auto-decide low-impact approvals (read-only file access, once-only scope). Never widens scope. */
+  autoApproveLowRisk?: boolean;
 }
 
 const FILE_TOOL = /write|edit|patch|create|replace|apply|delete|remove|rename|move|insert/i;
@@ -334,7 +337,16 @@ export class Conversation extends EventEmitter {
       case "approval/requested": {
         const a = params as ApprovalRequestParams;
         this.state.approvals = this.state.approvals.filter((x) => x.approvalId !== a.approvalId).concat(a);
-        if (live) this.send({ type: "approval", approval: a });
+        if (live) {
+          const auto = this.opts.autoApproveLowRisk ? autoApproveChoice(a) : null;
+          if (!auto) this.send({ type: "approval", approval: a });
+          else {
+            void this.decideApproval(a.approvalId, auto.choiceId, a.currentRequirementId).then(
+              () => this.toast("info", `Auto-approved low-risk request: ${auto.reason}.`),
+              () => this.send({ type: "approval", approval: a }), // decide failed: fall back to the card
+            );
+          }
+        }
         break;
       }
       case "approval/updated": {

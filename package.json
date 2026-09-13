@@ -2,7 +2,7 @@
   "name": "muse-code-unofficial",
   "displayName": "Muse Code (Unofficial)",
   "description": "Unofficial, community-built VS Code chat UI for Muse Code, Meta's agentic coding CLI. Not affiliated with Meta or Anthropic. Inspired by the Claude Code VS Code extension.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "publisher": "corona10",
   "license": "MIT",
   "icon": "resources/muse-logo.png",
@@ -39,7 +39,8 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "package": "npm run typecheck && node esbuild.mjs --production && vsce package --no-dependencies",
+    "test": "node --test src/autoApprove.test.ts",
+    "package": "npm run typecheck && npm test && node esbuild.mjs --production && vsce package --no-dependencies",
     "vscode:prepublish": "node esbuild.mjs --production",
     "smoke": "node scripts/smoke/run.mjs"
   },
@@ -86,6 +87,12 @@
           "default": false,
           "scope": "machine",
           "description": "Allow the 'Allow all' approval mode, which never asks before running tools. Recommended only for sandboxes with no internet access."
+        },
+        "museCode.autoApproveLowRisk": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "Smart auto-approve for low-impact approvals: read-only file access is approved automatically (once-only scope, never widened). Everything else still asks. Unknown subjects are never auto-approved."
         },
         "museCode.initialApprovalMode": {
           "type": "string",

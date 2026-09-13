@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2 (aminamos fork)
+
+- Smart auto-approve for low-impact approvals: new `museCode.autoApproveLowRisk` setting (default off). Read-only file access with a server-offered approve-once choice is decided immediately with a toast instead of a card. Fail-closed: shell/network/process/writes and unknown subject kinds always ask, scope is never widened, and a failed decide falls back to the card. Covered by `src/autoApprove.test.ts` (`npm test`).
+
 ## 0.5.1 (aminamos fork)
 
 - Windows: resolve a `muse.cmd` launcher shim to its versioned `muse-bin-<ver>.exe` via the sibling `.muse-version` file. Node cannot spawn `.cmd` without a shell (`spawn EINVAL`), which previously broke both `muse serve` startup and the skills list on Windows.

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { autoApproveChoice } from "./autoApprove.ts";
+import { autoApproveChoice, resolutionNote } from "./autoApprove.ts";
 
 function approval(subject: Record<string, unknown>, choices: Array<Record<string, unknown>>) {
   return { subject, availableChoices: choices } as Parameters<typeof autoApproveChoice>[0];
@@ -39,5 +39,21 @@ describe("autoApproveChoice", () => {
     assert.equal(autoApproveChoice(approval({ kind: "fileAccess", access: "read" }, [SESSION])), null);
     assert.equal(autoApproveChoice(approval({ kind: "fileAccess", access: "read" }, [DENY])), null);
     assert.equal(autoApproveChoice(approval({ kind: "fileAccess", access: "read" }, [])), null);
+  });
+});
+
+describe("resolutionNote", () => {
+  it("notes LLM judge approvals and denials", () => {
+    assert.equal(resolutionNote({ resolvedBy: "llmJudge", decision: "approved" }), "The LLM approval judge approved this request.");
+    assert.equal(resolutionNote({ resolvedBy: "llmJudge", decision: "approvedForSession" }), "The LLM approval judge approved this request.");
+    assert.equal(resolutionNote({ resolvedBy: "llmJudge", decision: "denied" }), "The LLM approval judge denied this request.");
+    assert.equal(resolutionNote({ resolvedBy: "llmJudge", decision: "timedOut" }), "The LLM approval judge resolved this request.");
+  });
+
+  it("stays silent for user, policy, and unknown resolvers", () => {
+    assert.equal(resolutionNote({ resolvedBy: "user", decision: "approved" }), null);
+    assert.equal(resolutionNote({ resolvedBy: "policy", decision: "approved" }), null);
+    assert.equal(resolutionNote({ resolvedBy: "mystery", decision: "approved" }), null);
+    assert.equal(resolutionNote({}), null);
   });
 });

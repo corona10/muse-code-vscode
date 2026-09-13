@@ -27,7 +27,7 @@ import type {
   ViewPageResult,
 } from "./msp/msp";
 import type { SessionSummary, ToWebview, UiMeta, UiState } from "./protocol";
-import { autoApproveChoice } from "./autoApprove";
+import { autoApproveChoice, resolutionNote } from "./autoApprove";
 
 export interface ConversationOptions {
   approvalMode?: ApprovalMode | null;
@@ -359,10 +359,15 @@ export class Conversation extends EventEmitter {
         }
         break;
       }
-      case "approval/resolved":
+      case "approval/resolved": {
         this.state.approvals = this.state.approvals.filter((x) => x.approvalId !== params.approvalId);
-        if (live) this.send({ type: "approvalResolved", approvalId: params.approvalId });
+        if (live) {
+          this.send({ type: "approvalResolved", approvalId: params.approvalId });
+          const note = resolutionNote(params);
+          if (note) this.toast("info", note);
+        }
         break;
+      }
       case "userInput/requested": {
         const u = params as UserInputRequestParams;
         this.state.userInputs = this.state.userInputs.filter((x) => x.userInputId !== u.userInputId).concat(u);

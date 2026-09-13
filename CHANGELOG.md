@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.3 (aminamos fork)
+
+- Judge visibility: approvals resolved by the CLI's LLM approval judge now raise an info toast ("The LLM approval judge approved/denied this request"). There is deliberately no on/off toggle — 1.2.1 exposes no control surface for the judge (no MSP param, no `serve` flag, no session param; the judge runs per host configuration, default on). Covered by `resolutionNote` cases in `src/autoApprove.test.ts`.
+
 ## 0.5.2 (aminamos fork)
 
 - Smart auto-approve for low-impact approvals: new `museCode.autoApproveLowRisk` setting (default off). Read-only file access with a server-offered approve-once choice is decided immediately with a toast instead of a card. Fail-closed: shell/network/process/writes and unknown subject kinds always ask, scope is never widened, and a failed decide falls back to the card. Covered by `src/autoApprove.test.ts` (`npm test`).

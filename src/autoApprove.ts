@@ -18,6 +18,24 @@ export interface ApprovalLike {
  * widened to session/always, and unknown subject kinds are never
  * auto-approved (MSP SS5.2). Everything else returns null (show the card).
  */
+export interface ResolutionLike {
+  resolvedBy?: unknown;
+  decision?: unknown;
+}
+
+/**
+ * Human-readable note for who resolved an approval, or null when no note is
+ * warranted. Only the LLM judge gets a note: user resolutions need none (you
+ * just clicked), and policy resolutions are routine. Unknown values -> null.
+ */
+export function resolutionNote(r: ResolutionLike): string | null {
+  if (r?.resolvedBy !== "llmJudge") return null;
+  const d = typeof r.decision === "string" ? r.decision : "";
+  if (d.startsWith("approv")) return "The LLM approval judge approved this request.";
+  if (d.startsWith("deni")) return "The LLM approval judge denied this request.";
+  return "The LLM approval judge resolved this request.";
+}
+
 export function autoApproveChoice(a: ApprovalLike): AutoApproveDecision | null {
   const subject = a?.subject;
   if (!subject || subject.kind !== "fileAccess") return null;

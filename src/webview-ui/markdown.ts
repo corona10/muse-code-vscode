@@ -1,4 +1,4 @@
-/** Small, dependency-free Markdown → HTML renderer. Escapes everything first, so it is XSS-safe by construction. */
+/** Small, dependency-free Markdown → HTML renderer. Link tokens are escaped and emitted without reprocessing their HTML. */
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -6,7 +6,6 @@ export function escapeHtml(s: string): string {
 
 function inline(s: string): string {
   let out = "";
-  let i = 0;
   // code spans first so their contents are never styled
   const parts = s.split(/(`+[^`]*`+)/g);
   for (const p of parts) {
@@ -14,18 +13,30 @@ function inline(s: string): string {
       out += `<code>${escapeHtml(p.replace(/^`+|`+$/g, ""))}</code>`;
       continue;
     }
-    let t = escapeHtml(p);
-    t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
-    t = t.replace(/(^|[\s(])((?:https?:\/\/)[^\s<>)]+)/g, '$1<a href="$2">$2</a>');
-    t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>");
-    t = t.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<em>$2</em>").replace(/(^|[^_\w])_([^_\n]+)_(?!\w)/g, "$1<em>$2</em>");
-    t = t.replace(/~~([^~]+)~~/g, "<del>$1</del>");
-    // @path#L1-2 mentions become clickable file links
-    t = t.replace(/(^|\s)@([\w./-]+(?:#L\d+(?:-\d+)?)?)/g, '$1<a class="file-link" data-file="$2" href="#">@$2</a>');
-    out += t;
+    // Tokenize original text only. Expand links after formatting, so neither
+    // autolinking nor emphasis can rewrite their generated tags/attributes.
+    const links: string[] = [];
+    let marker = "\0";
+    while (p.includes(marker)) marker += marker; // input cannot forge a token
+    const text = p.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(^|[\s(])((?:https?:\/\/)[^\s<>)]+)/g, (_match, label, href, prefix, bare) => {
+      const url = escapeHtml(href ?? bare);
+      links.push(`<a href="${url}">${label !== undefined ? inlineText(label, false) : url}</a>`);
+      return `${prefix ?? ""}${marker}${links.length - 1}${marker}`;
+    });
+    out += inlineText(text).replace(new RegExp(`${marker}(\\d+)${marker}`, "g"), (_match, index) => links[Number(index)]);
   }
-  i++;
   return out;
+}
+
+/** Formats plain text; labels disable file links to avoid nested anchors. */
+function inlineText(s: string, fileLinks = true): string {
+  let t = escapeHtml(s);
+  t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  t = t.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<em>$2</em>").replace(/(^|[^_\w])_([^_\n]+)_(?!\w)/g, "$1<em>$2</em>");
+  t = t.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+  // @path#L1-2 mentions become clickable file links
+  if (fileLinks) t = t.replace(/(^|\s)@([\w./-]+(?:#L\d+(?:-\d+)?)?)/g, '$1<a class="file-link" data-file="$2" href="#">@$2</a>');
+  return t;
 }
 
 export function renderMarkdown(src: string): string {

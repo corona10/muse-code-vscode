@@ -41,7 +41,8 @@
     "typecheck": "tsc --noEmit",
     "package": "npm run typecheck && node esbuild.mjs --production && vsce package --no-dependencies",
     "vscode:prepublish": "node esbuild.mjs --production",
-    "smoke": "node scripts/smoke/run.mjs"
+    "smoke": "node scripts/smoke/run.mjs",
+    "test:markdown": "node scripts/check-markdown-links.mjs"
   },
   "contributes": {
     "configuration": {
